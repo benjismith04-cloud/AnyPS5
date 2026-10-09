@@ -175,6 +175,10 @@ GuestImage GuestImageReader::Read(const std::filesystem::path& path, std::vector
         for (std::uint64_t index = 0; index < size; index += 24) {
             const auto info = Io::ReadU64(output, index + 8);
             const auto relocation = static_cast<std::uint32_t>(info);
+            if (relocation == 0) {
+                std::fill_n(output.begin() + index, 24, 0);
+                continue;
+            }
             if ((info >> 32) >= image.Symbols.size() || (plt && relocation != 7) || (relocation != 1 && relocation != 6 && relocation != 7 && relocation != 8 && relocation != 16 && relocation != 17 && relocation != 18)) fail("Unsupported relocation or symbol index");
             const auto target = Io::ReadU64(output, index);
             const auto addend = Io::ReadU64(output, index + 16);
@@ -218,6 +222,7 @@ GuestImage GuestImageReader::Read(const std::filesystem::path& path, std::vector
             bool relocated = false;
             for (const auto* table : {&image.Dynamic.RelaData, &image.Dynamic.RelaPltData}) {
                 for (std::size_t position = 0; position < table->size(); position += 24) {
+                    if (static_cast<std::uint32_t>(Io::ReadU64(*table, position + 8)) == 0) continue;
                     if (Io::ReadU64(*table, position) != address + offset) continue;
                     relocated = true;
                     const auto info = Io::ReadU64(*table, position + 8);

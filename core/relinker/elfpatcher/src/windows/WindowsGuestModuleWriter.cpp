@@ -24,6 +24,7 @@ std::vector<std::uint8_t> GuestModuleWriter::WriteWindows(const Relinker::GuestI
             const auto info = Io::ReadU64(table, offset + 8);
             const auto addend = Io::ReadU64(table, offset + 16);
             const auto type = static_cast<std::uint32_t>(info);
+            if (type == 0) continue;
             const auto symbolIndex = info >> 32;
             const auto& symbol = guest.Symbols.at(symbolIndex);
             const auto rva = image.GetRva(target, 8);
