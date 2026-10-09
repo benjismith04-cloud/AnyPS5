@@ -1,15 +1,26 @@
+include(${CMAKE_CURRENT_SOURCE_DIR}/Libusb.cmake)
+
 add_library(libSceUsbd SHARED EXCLUDE_FROM_ALL Export.cpp)
 target_include_directories(libSceUsbd PRIVATE ${LIBS_INCLUDE_DIR})
+target_link_libraries(libSceUsbd PRIVATE usbd_backend)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR MINGW)
+    target_link_options(libSceUsbd PRIVATE LINKER:--exclude-libs,ALL)
+endif()
 configure_windows_unwind(libSceUsbd)
 
 if(BUILD_TESTING)
-    add_test_executable(guest_usbd_tests ${LIBS_INCLUDE_DIR}/tests/GuestUsbd.cpp)
-    target_include_directories(guest_usbd_tests PRIVATE ${LIBS_INCLUDE_DIR})
-    target_link_libraries(guest_usbd_tests PRIVATE libSceUsbd libc)
+    add_test_executable(guest_usbd_tests ${LIBS_INCLUDE_DIR}/tests/GuestUsbd.cpp Export.cpp)
+    target_include_directories(guest_usbd_tests PRIVATE ${LIBS_INCLUDE_DIR} "${usbdBackendRoot}")
     configure_windows_unwind(guest_usbd_tests)
     add_test(NAME guest_usbd COMMAND guest_usbd_tests)
+
+    add_test_executable(guest_usbd_host_tests ${LIBS_INCLUDE_DIR}/tests/GuestUsbdHost.cpp)
+    target_include_directories(guest_usbd_host_tests PRIVATE ${LIBS_INCLUDE_DIR} "${usbdBackendRoot}")
+    target_link_libraries(guest_usbd_host_tests PRIVATE libSceUsbd libc)
+    configure_windows_unwind(guest_usbd_host_tests)
+    add_test(NAME guest_usbd_host COMMAND guest_usbd_host_tests)
     if(WIN32)
-        set_tests_properties(guest_usbd PROPERTIES ENVIRONMENT_MODIFICATION
+        set_tests_properties(guest_usbd_host PROPERTIES ENVIRONMENT_MODIFICATION
             "PATH=path_list_prepend:$<TARGET_FILE_DIR:libSceUsbd>")
     endif()
 endif()
