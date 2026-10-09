@@ -22,10 +22,11 @@ def command_output(stdout, stderr="", returncode=0):
             f"sys.exit({returncode})\n")
 
     def run(command, **kwargs):
+        if kwargs.get("encoding") is None:
+            kwargs["encoding"] = "cp1252"
         return RUN([sys.executable, "-c", code], **kwargs)
 
-    with patch.object(subprocess, "_text_encoding", return_value="cp1252"), \
-            patch.object(subprocess, "run", side_effect=run):
+    with patch.object(subprocess, "run", side_effect=run):
         yield
 
 
