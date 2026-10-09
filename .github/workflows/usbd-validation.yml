@@ -8,8 +8,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: usbd-validation
-  cancel-in-progress: true
+  group: usbd-validation-${{ github.sha }}
+  cancel-in-progress: false
 
 env:
   CONFIGURE: >-
@@ -29,13 +29,21 @@ jobs:
       - uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           key: linux
-          save: false
+          save: true
           evict-old-files: job
       - name: Install lavapipe for the GPU execution tests
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libvulkan1 mesa-vulkan-drivers libudev-dev
       - run: cmake -S . -B build $CONFIGURE -DANYPS5_ENABLE_SPIRV_TOOLS=ON
       - name: Check that every test executable is registered with ctest
         run: python3 tools/check_test_registration.py build
+      - name: Build USB runtime tests
+        run: cmake --build build --target guest_usbd_tests guest_usbd_host_tests --parallel 3
+      - name: Run USB runtime tests
+        run: ctest --test-dir build --output-on-failure -R "^guest_usbd"
+      - name: Check USB adapter with sanitizers
+        run: |
+          g++ -std=c++20 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Icore/libs -I3rdparty/libusb/libusb core/libs/tests/GuestUsbd.cpp core/libs/prx/libSceUsbd/Export.cpp -pthread -o "$RUNNER_TEMP/usbd-sanitized"
+          "$RUNNER_TEMP/usbd-sanitized"
       - run: cmake --build build --parallel 3
       - run: cmake --build build --target libs --parallel 3
       - run: ctest --test-dir build --output-on-failure --timeout 120 --parallel 4 --output-log ctest.log --output-junit ctest.xml
@@ -79,13 +87,19 @@ jobs:
       - uses: hendrikmuhs/ccache-action@v1.2.24
         with:
           key: windows
-          save: false
+          save: true
           evict-old-files: job
       - shell: cmd
         run: cmake -S . -B build %CONFIGURE%
       - name: Check that every test executable is registered with ctest
         shell: cmd
         run: python tools/check_test_registration.py build
+      - name: Build USB runtime tests
+        shell: cmd
+        run: cmake --build build --target guest_usbd_tests guest_usbd_host_tests --parallel 3
+      - name: Run USB runtime tests
+        shell: cmd
+        run: ctest --test-dir build --output-on-failure -R "^guest_usbd"
       - shell: cmd
         run: cmake --build build --parallel 3
       - shell: cmd
