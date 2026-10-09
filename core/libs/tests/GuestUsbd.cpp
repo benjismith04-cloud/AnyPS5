@@ -101,14 +101,14 @@ void LIBUSB_CALL libusb_free_device_list(libusb_device** list, int unrefDevices)
 }
 
 libusb_device* LIBUSB_CALL libusb_ref_device(libusb_device* supplied) {
-    Require(supplied == &device, "reference received a different device");
-    ++device.references;
+    Require(supplied == &device || supplied == &otherDevice, "reference received a different device");
+    ++supplied->references;
     return supplied;
 }
 
 void LIBUSB_CALL libusb_unref_device(libusb_device* supplied) {
-    Require(supplied == &device, "unreference received a different device");
-    --device.references;
+    Require(supplied == &device || supplied == &otherDevice, "unreference received a different device");
+    --supplied->references;
 }
 
 int LIBUSB_CALL libusb_get_device_descriptor(libusb_device* supplied, libusb_device_descriptor* descriptor) {
@@ -145,12 +145,12 @@ void LIBUSB_CALL libusb_free_config_descriptor(libusb_config_descriptor* descrip
 }
 
 std::uint8_t LIBUSB_CALL libusb_get_bus_number(libusb_device* supplied) {
-    Require(supplied == &device, "bus lookup received a different device");
+    Require(supplied == &device || supplied == &otherDevice, "bus lookup received a different device");
     return 17;
 }
 
 std::uint8_t LIBUSB_CALL libusb_get_device_address(libusb_device* supplied) {
-    Require(supplied == &device, "address lookup received a different device");
+    Require(supplied == &device || supplied == &otherDevice, "address lookup received a different device");
     return 23;
 }
 
@@ -295,7 +295,7 @@ void TestDevices() {
     Require(sceUsbdGetDeviceList(&list) == 2, "second enumeration failed");
     sceUsbdFreeDeviceList(list, 0);
     Require(device.references == 2 && otherDevice.references == 2, "free-list ignored unref flag");
-    --otherDevice.references;
+    sceUsbdUnrefDevice(&otherDevice);
     sceUsbdUnrefDevice(&device);
 
     UsbdDeviceDescriptor descriptor{};
@@ -304,6 +304,8 @@ void TestDevices() {
         "device descriptor contents changed");
     Require(sceUsbdGetBusNumber(&device) == 17 && sceUsbdGetDeviceAddress(&device) == 23,
         "device topology changed");
+    Require(sceUsbdGetBusNumber(&otherDevice) == 17 && sceUsbdGetDeviceAddress(&otherDevice) == 23,
+        "replacement-device fixture does not reuse the same address");
     UsbdConfigDescriptor* config = nullptr;
     Require(sceUsbdGetConfigDescriptor(&device, 7, &config) == 0 && lastArgument == 7,
         "configuration index changed");
@@ -427,6 +429,17 @@ UsbdTransfer* InterruptTransfer(Completion& completion, unsigned char* buffer, i
 
 void TestTransfers() {
     std::array<unsigned char, 8> buffer{};
+    auto* filled = sceUsbdAllocTransfer(2);
+    Require(filled != nullptr, "fill-preservation allocation failed");
+    filled->flags = LIBUSB_TRANSFER_SHORT_NOT_OK;
+    filled->status = LIBUSB_TRANSFER_TIMED_OUT;
+    filled->actual_length = 7;
+    filled->num_iso_packets = 1;
+    sceUsbdFillInterruptTransfer(filled, &handle, 0x83, buffer.data(), buffer.size(), nullptr, nullptr, 456);
+    Require(filled->flags == LIBUSB_TRANSFER_SHORT_NOT_OK && filled->status == LIBUSB_TRANSFER_TIMED_OUT
+        && filled->actual_length == 7 && filled->num_iso_packets == 1,
+        "fill-interrupt overwrote unrelated transfer fields");
+    sceUsbdFreeTransfer(filled);
     Completion completion;
     auto* transfer = InterruptTransfer(completion, buffer.data(), buffer.size());
     transfer->flags = LIBUSB_TRANSFER_SHORT_NOT_OK;
