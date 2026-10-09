@@ -1,0 +1,19 @@
+#define _GNU_SOURCE 1
+#define DEFAULT_VISIBILITY
+#define PRINTF_FORMAT(a, b)
+#define ENABLE_LOGGING 1
+
+#cmakedefine PLATFORM_POSIX 1
+#cmakedefine PLATFORM_WINDOWS 1
+#cmakedefine HAVE_SYS_TIME_H 1
+#cmakedefine HAVE_STRUCT_TIMESPEC 1
+#cmakedefine HAVE_NFDS_T 1
+#cmakedefine HAVE_CLOCK_GETTIME 1
+#cmakedefine HAVE_PTHREAD_CONDATTR_SETCLOCK 1
+#cmakedefine HAVE_PIPE2 1
+#cmakedefine HAVE_PTHREAD_THREADID_NP 1
+#cmakedefine HAVE_IOKIT_USB_IOUSBHOSTFAMILYDEFINITIONS_H 1
+#cmakedefine HAVE_PTHREAD_SETNAME_NP 1
+#cmakedefine HAVE_ASM_TYPES_H 1
+#cmakedefine HAVE_EVENTFD 1
+#cmakedefine HAVE_TIMERFD 1
